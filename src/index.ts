@@ -1,4 +1,9 @@
-export { redactText } from "./redact.js";
+export { redactText, redactSensitive, maskValue } from "./redact.js";
+export type {
+  RedactionStyle,
+  RedactSensitiveOptions,
+  RedactSensitiveResult,
+} from "./redact.js";
 export { toSarif } from "./sarif.js";
 export { buildCustomRules, loadConfig } from "./config.js";
 export type { AgentGuardConfig, CustomRuleConfig } from "./config.js";
