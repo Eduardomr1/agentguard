@@ -7,7 +7,13 @@ export { validateSchema, extractJson } from "./schema.js";
 export { injectionRules } from "./rules/injection.js";
 export { secretRules, inspectJwtToken } from "./rules/secrets.js";
 export type { JwtInspectionResult } from "./rules/secrets.js";
-export { piiRules } from "./rules/pii.js";
+export {
+  piiRules,
+  computeCurpCheckDigit,
+  validateMexicanCurp,
+  validateSpanishId,
+  validateBrazilianCpf,
+} from "./rules/pii.js";
 export * from "./types.js";
 export * from "./guard.js";
 export * from "./normalize.js";

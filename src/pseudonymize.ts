@@ -70,6 +70,10 @@ function formatHashPseudonym(
     return /DOB/i.test(original) ? `dob_${hash}` : `passport_${hash}`;
   }
 
+  if (ruleId === "PII007") return `curp_${hash}`;
+  if (ruleId === "PII008") return `dni_${hash}`;
+  if (ruleId === "PII009") return `cpf_${hash}`;
+
   // Secrets
   if (ruleId === "SEC001") return `aws_${hash}`;
   if (ruleId === "SEC002") return `google_${hash}`;
@@ -157,6 +161,24 @@ function formatSyntheticPseudonym(
     const count = counters.next("PII006_PASSPORT");
     const num = String(1000000 + count).slice(1);
     return `passport: A${num}`;
+  }
+
+  if (ruleId === "PII007") {
+    const count = counters.next("PII007");
+    const idx = String(count % 10);
+    return `XXXX000101HDFXXX0${idx}`;
+  }
+
+  if (ruleId === "PII008") {
+    const count = counters.next("PII008");
+    const idx = String(10000000 + count);
+    return `${idx}Z`;
+  }
+
+  if (ruleId === "PII009") {
+    const count = counters.next("PII009");
+    const suffix = String(count % 100).padStart(2, "0");
+    return `000.000.000-${suffix}`;
   }
 
   if (ruleId === "SEC001") {
