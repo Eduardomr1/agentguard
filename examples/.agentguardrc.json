@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json.schemastore.org/agentguardrc.json",
+  "_comment": "AgentGuard configuration file (.agentguardrc.json) - Defines policy thresholds, rule exclusions, and custom regex rules.",
+
+  "failOn": "high",
+  "_failOn_comment": "Minimum severity to exit with code 1 or block in middleware: 'low' | 'medium' | 'high' | 'critical'. Default is 'low'.",
+
+  "disable": [
+    "PII005",
+    "SEC009"
+  ],
+  "_disable_comment": "List of built-in rule IDs to skip during auditing. For example: PII005 (international phone numbers) and SEC009 (heuristic high-entropy strings) are disabled here to avoid false positives in customer contact and encrypted payload workflows.",
+
+  "rules": [
+    {
+      "id": "CORP-SEC-001",
+      "pattern": "corp_[a-zA-Z0-9]{32}",
+      "flags": "i",
+      "severity": "critical",
+      "category": "secret",
+      "targets": ["prompt", "output"],
+      "message": "Internal corporate API access token detected"
+    },
+    {
+      "id": "CORP-PII-001",
+      "pattern": "\\bEMP-[0-9]{6}\\b",
+      "flags": "i",
+      "severity": "medium",
+      "category": "pii",
+      "targets": ["prompt", "output"],
+      "message": "Internal Employee Badge ID detected"
+    },
+    {
+      "id": "CORP-INJ-001",
+      "pattern": "\\b(bypass|disable|override|disregard)\\b[\\s\\S]{0,30}\\b(corporate|internal|security)\\s+(guardrail|policy|rules?)\\b",
+      "flags": "i",
+      "severity": "high",
+      "category": "injection",
+      "targets": ["prompt"],
+      "message": "Attempt to bypass corporate security guardrails or policies"
+    },
+    {
+      "id": "CORP-CONF-001",
+      "pattern": "CONFIDENTIAL\\s+DO\\s+NOT\\s+DISCLOSE",
+      "flags": "i",
+      "severity": "high",
+      "category": "secret",
+      "targets": ["output"],
+      "message": "Internal confidential document header detected in model response"
+    },
+    {
+      "id": "CORP-INJ-002",
+      "pattern": "\\b(UNION\\s+SELECT|DROP\\s+TABLE|ALTER\\s+TABLE|--\\s*$|;--)\\b",
+      "flags": "i",
+      "severity": "high",
+      "category": "injection",
+      "targets": ["prompt"],
+      "message": "SQL injection payload detected in agent input"
+    }
+  ]
+}

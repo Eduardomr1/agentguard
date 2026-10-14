@@ -1,0 +1,15 @@
+- id: agentguard
+  name: AgentGuard Security Audit
+  description: Audits prompts, documents, and model outputs for prompt injection, secret/PII leaks, and JSON schema validation.
+  entry: agentguard
+  language: node
+  files: \.(txt|prompt|md|json)$
+  args: [--fail-on, high, --normalize]
+
+- id: agentguard-system
+  name: AgentGuard Security Audit (System)
+  description: Audits prompts, documents, and model outputs using system or npx agentguard installation.
+  entry: npx agentguard
+  language: system
+  files: \.(txt|prompt|md|json)$
+  args: [--fail-on, high, --normalize]

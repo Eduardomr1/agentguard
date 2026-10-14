@@ -1,0 +1,259 @@
+name: 'AgentGuard Security Audit'
+description: 'Lightweight auditor for LLM prompts and outputs: detects prompt injection, secret/PII leaks, and validates JSON schemas.'
+author: 'AgentGuard Team'
+
+inputs:
+  target:
+    description: "Target type to audit ('prompt' or 'output')"
+    required: false
+    default: 'prompt'
+  fail-on:
+    description: "Severity threshold to fail the action ('low', 'medium', 'high', 'critical')"
+    required: false
+    default: 'low'
+  files:
+    description: 'File path, glob pattern, or list of files to audit'
+    required: false
+    default: ''
+  input:
+    description: 'Raw text or prompt content to audit directly via stdin (used if files is not provided)'
+    required: false
+    default: ''
+  config:
+    description: 'Path to configuration file (.agentguardrc.json)'
+    required: false
+    default: ''
+  schema:
+    description: 'Path to JSON Schema file for structured output validation'
+    required: false
+    default: ''
+  normalize:
+    description: 'Enable homoglyph and leetspeak deobfuscation (true/false)'
+    required: false
+    default: 'false'
+  sarif:
+    description: 'Path where SARIF report will be saved (e.g. agentguard.sarif)'
+    required: false
+    default: ''
+  html:
+    description: 'Path where standalone interactive HTML report will be saved (e.g. report.html)'
+    required: false
+    default: ''
+  upload-sarif:
+    description: 'Automatically upload SARIF report to GitHub Code Scanning'
+    required: false
+    default: 'false'
+
+outputs:
+  findings:
+    description: 'Total number of findings detected across all audited inputs'
+    value: ${{ steps.agentguard.outputs.findings }}
+  ok:
+    description: 'Whether the audit completed without blocking violations (true/false)'
+    value: ${{ steps.agentguard.outputs.ok }}
+  sarif-path:
+    description: 'Path to generated SARIF file, if created'
+    value: ${{ steps.agentguard.outputs.sarif-path }}
+  html-path:
+    description: 'Path to generated HTML report, if created'
+    value: ${{ steps.agentguard.outputs.html-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare AgentGuard Environment
+      id: prep
+      shell: bash
+      run: |
+        set -e
+        ACTION_DIR="${{ github.action_path }}"
+        if [ -f "$ACTION_DIR/package.json" ]; then
+          if [ ! -f "$ACTION_DIR/dist/cli.js" ]; then
+            echo "Building AgentGuard CLI from source in $ACTION_DIR..."
+            npm --prefix "$ACTION_DIR" ci --silent --ignore-scripts || npm --prefix "$ACTION_DIR" install --silent --ignore-scripts
+            npm --prefix "$ACTION_DIR" run build --silent
+          fi
+          echo "CLI_CMD=node $ACTION_DIR/dist/cli.js" >> "$GITHUB_ENV"
+        elif command -v agentguard >/dev/null 2>&1; then
+          echo "CLI_CMD=agentguard" >> "$GITHUB_ENV"
+        else
+          echo "CLI_CMD=npx --yes agentguard" >> "$GITHUB_ENV"
+        fi
+
+    - name: Execute AgentGuard Audit
+      id: agentguard
+      shell: bash
+      run: |
+        TARGET="${{ inputs.target }}"
+        FAIL_ON="${{ inputs.fail-on }}"
+        CONFIG_FILE="${{ inputs.config }}"
+        SCHEMA_FILE="${{ inputs.schema }}"
+        NORMALIZE="${{ inputs.normalize }}"
+        SARIF_FILE="${{ inputs.sarif }}"
+        HTML_FILE="${{ inputs.html }}"
+        FILES_PATTERN="${{ inputs.files }}"
+        RAW_INPUT="${{ inputs.input }}"
+
+        CLI="$CLI_CMD"
+        echo "Using AgentGuard runner: $CLI"
+
+        ARGS=("--target" "$TARGET" "--fail-on" "$FAIL_ON")
+        if [ -n "$CONFIG_FILE" ]; then ARGS+=("--config" "$CONFIG_FILE"); fi
+        if [ -n "$SCHEMA_FILE" ]; then ARGS+=("--schema" "$SCHEMA_FILE"); fi
+        if [ "$NORMALIZE" = "true" ]; then ARGS+=("--normalize"); fi
+
+        TOTAL_FINDINGS=0
+        FAIL_STATUS=0
+        AUDITED_COUNT=0
+
+        TMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'agentguard')
+
+        TARGET_FILES=()
+        if [ -n "$FILES_PATTERN" ]; then
+          shopt -s globstar nullglob
+          for f in $FILES_PATTERN; do
+            if [ -f "$f" ]; then
+              TARGET_FILES+=("$f")
+            fi
+          done
+        fi
+
+        audit_single() {
+          local src="$1"
+          local is_stdin="$2"
+          local file_display="$src"
+          if [ "$is_stdin" = "1" ]; then file_display="stdin"; fi
+
+          echo "::group::Auditing $file_display"
+
+          local json_out="$TMP_DIR/audit_${AUDITED_COUNT}.json"
+          local exit_code=0
+          if [ "$is_stdin" = "1" ]; then
+            printf "%s" "$RAW_INPUT" | $CLI - "${ARGS[@]}" --json > "$json_out" 2>&1 || exit_code=$?
+          else
+            $CLI "$src" "${ARGS[@]}" --json > "$json_out" 2>&1 || exit_code=$?
+          fi
+
+          if [ $exit_code -ne 0 ] && [ $exit_code -ne 1 ]; then
+            echo "::error::AgentGuard encountered an error while processing $file_display (Exit code: $exit_code)"
+            cat "$json_out"
+            echo "::endgroup::"
+            return $exit_code
+          fi
+
+          local f_count
+          f_count=$(node -e "
+            try {
+              const fs = require('fs');
+              const data = JSON.parse(fs.readFileSync('$json_out', 'utf8'));
+              const findings = Array.isArray(data.findings) ? data.findings : [];
+              console.log(findings.length);
+              for (const f of findings) {
+                const level = (f.severity === 'critical' || f.severity === 'high') ? 'error' : 'warning';
+                const file = '$is_stdin' === '1' ? 'stdin' : '$src';
+                console.error(\`::\${level} file=\${file}::[\${f.ruleId}] \${f.message} (severity: \${f.severity})\`);
+              }
+            } catch (e) {
+              console.log(0);
+            }
+          ")
+
+          TOTAL_FINDINGS=$((TOTAL_FINDINGS + f_count))
+          if [ $exit_code -eq 1 ]; then
+            FAIL_STATUS=1
+          fi
+
+          if [ "$is_stdin" = "1" ]; then
+            printf "%s" "$RAW_INPUT" | $CLI - "${ARGS[@]}" || true
+          else
+            $CLI "$src" "${ARGS[@]}" || true
+          fi
+
+          if [ -n "$HTML_FILE" ]; then
+            if [ "$AUDITED_COUNT" -eq 0 ]; then
+              if [ "$is_stdin" = "1" ]; then
+                printf "%s" "$RAW_INPUT" | $CLI - "${ARGS[@]}" --html "$HTML_FILE" >/dev/null 2>&1 || true
+              else
+                $CLI "$src" "${ARGS[@]}" --html "$HTML_FILE" >/dev/null 2>&1 || true
+              fi
+            fi
+          fi
+
+          if [ -n "$SARIF_FILE" ]; then
+            local sarif_temp="$TMP_DIR/sarif_${AUDITED_COUNT}.json"
+            if [ "$is_stdin" = "1" ]; then
+              printf "%s" "$RAW_INPUT" | $CLI - "${ARGS[@]}" --sarif > "$sarif_temp" 2>/dev/null || true
+            else
+              $CLI "$src" "${ARGS[@]}" --sarif > "$sarif_temp" 2>/dev/null || true
+            fi
+          fi
+
+          AUDITED_COUNT=$((AUDITED_COUNT + 1))
+          echo "::endgroup::"
+        }
+
+        if [ ${#TARGET_FILES[@]} -gt 0 ]; then
+          for file in "${TARGET_FILES[@]}"; do
+            audit_single "$file" 0
+          done
+        elif [ -n "$RAW_INPUT" ]; then
+          audit_single "stdin" 1
+        else
+          echo "::warning::No input provided (neither 'files' matching anything nor 'input' string was specified)."
+        fi
+
+        if [ -n "$SARIF_FILE" ]; then
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const tmpDir = '$TMP_DIR';
+            const sarifFiles = fs.readdirSync(tmpDir).filter(f => f.startsWith('sarif_') && f.endsWith('.json'));
+            const combined = {
+              \$schema: 'https://json.schemastore.org/sarif-2.1.0.json',
+              version: '2.1.0',
+              runs: [
+                {
+                  tool: { driver: { name: 'AgentGuard', rules: [] } },
+                  results: []
+                }
+              ]
+            };
+            const ruleIds = new Set();
+            for (const file of sarifFiles) {
+              try {
+                const doc = JSON.parse(fs.readFileSync(path.join(tmpDir, file), 'utf8'));
+                if (doc.runs && doc.runs[0]) {
+                  const run = doc.runs[0];
+                  if (run.results) combined.runs[0].results.push(...run.results);
+                  if (run.tool?.driver?.rules) {
+                    for (const r of run.tool.driver.rules) ruleIds.add(r.id);
+                  }
+                }
+              } catch (_) {}
+            }
+            combined.runs[0].tool.driver.rules = Array.from(ruleIds).map(id => ({ id }));
+            fs.writeFileSync('$SARIF_FILE', JSON.stringify(combined, null, 2), 'utf8');
+            console.log('SARIF consolidated report written to $SARIF_FILE');
+          "
+          echo "sarif-path=$SARIF_FILE" >> "$GITHUB_OUTPUT"
+        fi
+
+        if [ -n "$HTML_FILE" ] && [ -f "$HTML_FILE" ]; then
+          echo "html-path=$HTML_FILE" >> "$GITHUB_OUTPUT"
+        fi
+
+        echo "findings=$TOTAL_FINDINGS" >> "$GITHUB_OUTPUT"
+        if [ $FAIL_STATUS -eq 0 ]; then
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+          echo "AgentGuard audit completed: 0 blocking violations (Total findings: $TOTAL_FINDINGS)."
+        else
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          echo "AgentGuard audit failed: violations found exceeding threshold '$FAIL_ON' (Total findings: $TOTAL_FINDINGS)." >&2
+          exit 1
+        fi
+
+    - name: Upload SARIF to GitHub Code Scanning
+      if: ${{ inputs.upload-sarif == 'true' && inputs.sarif != '' && always() }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif }}

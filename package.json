@@ -1,0 +1,32 @@
+{
+  "name": "agentguard",
+  "version": "0.1.0",
+  "description": "Lightweight auditor for LLM prompts/outputs: prompt injection, secret/PII leaks, JSON schema validation.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "agentguard": "dist/cli.js",
+    "agentguard-mcp": "dist/mcp-cli.js"
+  },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=18.3" },
+  "keywords": ["llm", "security", "prompt-injection", "pii", "secrets", "guardrails"],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build && npm test",
+    "test": "vitest run",
+    "dev": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
