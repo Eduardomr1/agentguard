@@ -124,9 +124,52 @@ function isInvisible(codePoint: number): boolean {
     (codePoint >= 0x202a && codePoint <= 0x202e) || // Directional formatting
     (codePoint >= 0x2060 && codePoint <= 0x2064) || // Word joiner, invisible operators
     (codePoint >= 0x2066 && codePoint <= 0x2069) || // Directional isolates
+    (codePoint >= 0xe0000 && codePoint <= 0xe001f) || // Unicode Tag control characters
+    codePoint === 0xe007f || // Cancel Tag
     codePoint === 0xfeff || // Zero-width no-break space / BOM
     codePoint === 0x00ad // Soft hyphen
   );
+}
+
+/**
+ * Encodes printable ASCII characters (0x20..0x7E) into the invisible Unicode Tag block (U+E0020..U+E007E).
+ * Useful for testing steganographic tag-smuggling defenses.
+ */
+export function encodeUnicodeTags(ascii: string): string {
+  let out = "";
+  for (let i = 0; i < ascii.length; i++) {
+    const code = ascii.charCodeAt(i);
+    if (code >= 0x20 && code <= 0x7e) {
+      out += String.fromCodePoint(code + 0xe0000);
+    } else {
+      out += ascii[i];
+    }
+  }
+  return out;
+}
+
+/**
+ * Decodes invisible Unicode Tag block characters (U+E0020..U+E007E) back into printable ASCII
+ * and strips tag control markers (U+E0000..U+E001F, U+E007F).
+ */
+export function decodeUnicodeTags(text: string): { decoded: string; hasTags: boolean } {
+  let decoded = "";
+  let hasTags = false;
+  let i = 0;
+  while (i < text.length) {
+    const cp = text.codePointAt(i)!;
+    const step = cp > 0xffff ? 2 : 1;
+    i += step;
+    if (cp >= 0xe0020 && cp <= 0xe007e) {
+      hasTags = true;
+      decoded += String.fromCharCode(cp - 0xe0000);
+    } else if ((cp >= 0xe0000 && cp <= 0xe001f) || cp === 0xe007f) {
+      hasTags = true;
+    } else {
+      decoded += String.fromCodePoint(cp);
+    }
+  }
+  return { decoded, hasTags };
 }
 
 export interface NormalizeOptions {
@@ -173,8 +216,10 @@ export function normalizeText(text: string, options?: NormalizeOptions): Normali
 
     let ch: string;
 
-    // 3. Fullwidth characters (FF01..FF5E -> ASCII, 3000 -> space)
-    if (codePoint >= 0xff01 && codePoint <= 0xff5e) {
+    // 3. Unicode Tag block printable ASCII (E0020..E007E -> ASCII) & Fullwidth characters (FF01..FF5E -> ASCII, 3000 -> space)
+    if (codePoint >= 0xe0020 && codePoint <= 0xe007e) {
+      ch = String.fromCharCode(codePoint - 0xe0000);
+    } else if (codePoint >= 0xff01 && codePoint <= 0xff5e) {
       ch = String.fromCharCode(codePoint - 0xfee0);
     } else if (codePoint === 0x3000) {
       ch = " ";
