@@ -81,6 +81,10 @@ function formatHashPseudonym(
   if (ruleId === "SEC008") return `credential_${hash}`;
   if (ruleId === "SEC009") return `secret_${hash}`;
   if (ruleId === "SEC010") return `server_${hash}`;
+  if (ruleId === "SEC011") return `aitoken_${hash}`;
+  if (ruleId === "SEC012") return `pkgkey_${hash}`;
+  if (ruleId === "SEC013") return `dburi_${hash}`;
+  if (ruleId === "SEC014") return `cloudkey_${hash}`;
 
   if (category === "secret") return `secret_${hash}`;
   if (category === "pii") return `pii_${hash}`;
@@ -211,6 +215,30 @@ function formatSyntheticPseudonym(
     const count = counters.next("SEC010");
     const idx = String(count).padStart(2, "0");
     return `server at 127.0.0.1 user admin password synthetic_pass_${idx}`;
+  }
+
+  if (ruleId === "SEC011") {
+    const count = counters.next("SEC011");
+    const idx = String(count).padStart(2, "0");
+    return `sk-ant-api03-EXAMPLE000000000000000000${idx}`;
+  }
+
+  if (ruleId === "SEC012") {
+    const count = counters.next("SEC012");
+    const idx = String(count).padStart(2, "0");
+    return `sk_test_EXAMPLE000000000000${idx}`;
+  }
+
+  if (ruleId === "SEC013") {
+    const count = counters.next("SEC013");
+    const idx = String(count).padStart(2, "0");
+    return `postgres://user_${idx}:synthetic_pass@localhost:5432/app`;
+  }
+
+  if (ruleId === "SEC014") {
+    const count = counters.next("SEC014");
+    const idx = String(count).padStart(2, "0");
+    return `SG.EXAMPLE_KEY_00000${idx}.EXAMPLE_SECRET_00000${idx}`;
   }
 
   if (category === "secret") {
