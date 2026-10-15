@@ -1,6 +1,6 @@
-﻿import { audit, exceeds } from "./engine.js";
+import { audit, exceeds } from "./engine.js";
 import { redactText } from "./redact.js";
-import type { AuditResult, Finding, Rule, Severity, Target } from "./types.js";
+import type { AuditResult, Finding, PolicyConfig, Rule, Severity, Target } from "./types.js";
 
 export type OnViolation = "throw" | "redact" | "report";
 
@@ -13,6 +13,8 @@ export interface GuardOptions {
   disable?: string[];
   /** JSON Schema applied to the output only. */
   schema?: object;
+  /** Policy config for allowlists, severity overrides, and category filters. */
+  policy?: PolicyConfig;
   /** Called with every audit that has findings (all modes). */
   onReport?: (target: Target, result: AuditResult) => void;
   /** Stream only: chars held back so secrets split across chunks are caught. Default 64. */
@@ -38,6 +40,7 @@ function run(text: string, target: Target, o: GuardOptions): AuditResult {
     rules: o.rules,
     disable: o.disable,
     schema: target === "output" ? o.schema : undefined,
+    policy: o.policy,
   });
   if (res.findings.length) o.onReport?.(target, res);
   return res;
@@ -97,7 +100,12 @@ export async function* guardStream(
   for await (const chunk of source) {
     raw += chunk;
     // Interim audit without schema/report noise.
-    const res = audit(raw, { target: "output", rules: opts.rules, disable: opts.disable });
+    const res = audit(raw, {
+      target: "output",
+      rules: opts.rules,
+      disable: opts.disable,
+      policy: opts.policy,
+    });
     if (mode === "throw" && exceeds(res, failOn)) {
       run(raw, "output", { ...opts, schema: undefined });
       throw new AgentGuardError("output", res.findings);

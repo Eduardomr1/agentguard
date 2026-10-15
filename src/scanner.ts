@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { audit, exceeds } from "./engine.js";
 import { auditWithNormalization } from "./normalize.js";
 import { SEVERITY_ORDER } from "./types.js";
-import type { AuditResult, Finding, Rule, Severity, Target } from "./types.js";
+import type { AuditResult, Finding, PolicyConfig, Rule, Severity, Target } from "./types.js";
 
 /** Default file extensions inspected during directory scans. */
 export const DEFAULT_SCAN_EXTENSIONS = [".txt", ".md", ".json", ".prompt"] as const;
@@ -47,6 +47,7 @@ export interface ScanOptions {
   normalize?: boolean;
   schema?: object;
   rules?: Rule[];
+  policy?: PolicyConfig;
 }
 
 export interface ScanSummary {
@@ -297,6 +298,7 @@ export async function scanFiles(
       disable: options.disable,
       schema: options.schema,
       rules: options.rules,
+      policy: options.policy,
     });
 
     const fileFindings: FileFinding[] = rawResult.findings.map((f) => {

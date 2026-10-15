@@ -1,6 +1,6 @@
 import { audit } from "./engine.js";
 import { SEVERITY_ORDER } from "./types.js";
-import type { Category, Finding, Rule, Severity, Target } from "./types.js";
+import type { Category, Finding, PolicyConfig, Rule, Severity, Target } from "./types.js";
 
 export type RedactionStyle = "tag" | "partial" | "stars";
 
@@ -11,6 +11,7 @@ export interface RedactSensitiveOptions {
   disable?: string[];
   rules?: Rule[];
   target?: Target;
+  policy?: PolicyConfig;
   customReplacement?: (finding: Finding, rawMatch: string) => string;
 }
 
@@ -103,6 +104,7 @@ export function redactSensitive(
     target: options.target ?? "prompt",
     disable: options.disable,
     rules: options.rules,
+    policy: options.policy,
   });
 
   const allowedCategories = new Set<Category>(options.categories ?? ["secret", "pii"]);

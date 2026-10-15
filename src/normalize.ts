@@ -1,4 +1,5 @@
 import { audit } from "./engine.js";
+import { applyPolicy } from "./policy.js";
 import { redact } from "./rules/util.js";
 import { SEVERITY_ORDER } from "./types.js";
 import type { AuditOptions, AuditResult, Finding } from "./types.js";
@@ -291,15 +292,16 @@ export function normalizeLeetspeak(text: string): string {
  */
 export function auditWithNormalization(text: string, options: AuditOptions = {}): AuditResult {
   const allFindings: Finding[] = [];
+  const rawAuditOpts: AuditOptions = { ...options, policy: undefined };
 
   // 1. Raw text audit
-  const rawResult = audit(text, options);
+  const rawResult = audit(text, rawAuditOpts);
   allFindings.push(...rawResult.findings);
 
   // 2. Homoglyph & fullwidth & zero-width normalization
   const norm = normalizeText(text, { leet: false });
   if (norm.normalized !== text) {
-    const normResult = audit(norm.normalized, { ...options, schema: undefined });
+    const normResult = audit(norm.normalized, { ...rawAuditOpts, schema: undefined });
     for (const f of normResult.findings) {
       const start = norm.mapIndex(f.start);
       const end = norm.mapIndex(f.end);
@@ -315,7 +317,7 @@ export function auditWithNormalization(text: string, options: AuditOptions = {})
   // 3. Combined leetspeak + homoglyph normalization
   const normLeet = normalizeText(text, { leet: true });
   if (normLeet.normalized !== text && normLeet.normalized !== norm.normalized) {
-    const leetResult = audit(normLeet.normalized, { ...options, schema: undefined });
+    const leetResult = audit(normLeet.normalized, { ...rawAuditOpts, schema: undefined });
     for (const f of leetResult.findings) {
       const start = normLeet.mapIndex(f.start);
       const end = normLeet.mapIndex(f.end);
@@ -339,7 +341,11 @@ export function auditWithNormalization(text: string, options: AuditOptions = {})
     }
   }
 
-  uniqueFindings.sort(
+  const effectiveFindings = options.policy
+    ? applyPolicy(text, uniqueFindings, options.policy)
+    : uniqueFindings;
+
+  effectiveFindings.sort(
     (a, b) =>
       SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] ||
       a.start - b.start ||
@@ -347,7 +353,7 @@ export function auditWithNormalization(text: string, options: AuditOptions = {})
   );
 
   return {
-    ok: uniqueFindings.length === 0,
-    findings: uniqueFindings,
+    ok: effectiveFindings.length === 0,
+    findings: effectiveFindings,
   };
 }
