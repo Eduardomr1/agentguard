@@ -29,6 +29,28 @@ export interface Rule {
   detect(text: string): RuleMatch[];
 }
 
+export interface AllowlistConfig {
+  /** Regex patterns matched against the raw matched substring; matching spans are ignored. */
+  patterns?: Array<string | RegExp>;
+  /** Exact literal values (e.g. placeholder tokens or dummy emails) to ignore. */
+  values?: string[];
+  /** Per-rule regex allowlist patterns, keyed by ruleId. */
+  byRule?: Record<string, Array<string | RegExp>>;
+}
+
+export interface PolicyConfig {
+  /** Allowlist configuration for suppressing known-safe placeholders and domains. */
+  allowlist?: AllowlistConfig;
+  /** Override severity per rule ID (e.g. { INJ005: "high", PII001: "low" }). */
+  severityOverrides?: Record<string, Severity>;
+  /** Restrict auditing to specific categories. */
+  categories?: Category[];
+  /** Minimum severity to retain in audit findings. */
+  minSeverity?: Severity;
+  /** Opt-in support for inline suppression comments in trusted prompt templates. Default false. */
+  honorInlineSuppressions?: boolean;
+}
+
 export interface AuditOptions {
   target?: Target;
   rules?: Rule[];
@@ -36,6 +58,8 @@ export interface AuditOptions {
   disable?: string[];
   /** Optional JSON Schema; text is parsed as JSON and validated (outputs). */
   schema?: object;
+  /** Optional policy for allowlists, severity overrides, category filters, and inline suppressions. */
+  policy?: PolicyConfig;
 }
 
 export interface AuditResult {

@@ -1,3 +1,4 @@
+import { applyPolicy } from "./policy.js";
 import { injectionRules } from "./rules/injection.js";
 import { piiRules } from "./rules/pii.js";
 import { secretRules } from "./rules/secrets.js";
@@ -32,8 +33,11 @@ export function audit(text: string, options: AuditOptions = {}): AuditResult {
 
   if (options.schema) findings.push(...validateSchema(text, options.schema));
 
-  findings.sort((a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] || a.start - b.start);
-  return { ok: findings.length === 0, findings };
+  const effectiveFindings = options.policy ? applyPolicy(text, findings, options.policy) : findings;
+  effectiveFindings.sort(
+    (a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] || a.start - b.start,
+  );
+  return { ok: effectiveFindings.length === 0, findings: effectiveFindings };
 }
 
 /** True if any finding meets or exceeds the given severity. */

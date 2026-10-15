@@ -5,8 +5,9 @@ export type {
   RedactSensitiveResult,
 } from "./redact.js";
 export { toSarif } from "./sarif.js";
-export { buildCustomRules, loadConfig } from "./config.js";
+export { buildCustomRules, extractPolicyFromConfig, loadConfig } from "./config.js";
 export type { AgentGuardConfig, CustomRuleConfig } from "./config.js";
+export * from "./policy.js";
 export { audit, exceeds, defaultRules } from "./engine.js";
 export { validateSchema, extractJson } from "./schema.js";
 export { injectionRules } from "./rules/injection.js";
