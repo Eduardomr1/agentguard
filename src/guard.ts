@@ -60,6 +60,27 @@ function enforce(text: string, target: Target, o: GuardOptions): string {
   return redacted;
 }
 
+export interface ToolCallPayload {
+  name: string;
+  arguments: string | Record<string, unknown>;
+}
+
+/**
+ * Audits an agentic tool/function call before execution against tool safety guardrails.
+ */
+export function auditToolCall(toolCall: ToolCallPayload, options: GuardOptions = {}): AuditResult {
+  const argText =
+    typeof toolCall.arguments === "string"
+      ? toolCall.arguments
+      : JSON.stringify(toolCall.arguments);
+  const res = run(argText, "tool", options);
+  const failOn = options.failOn ?? "high";
+  if (options.onViolation === "throw" && exceeds(res, failOn)) {
+    throw new AgentGuardError("tool", res.findings);
+  }
+  return res;
+}
+
 /** Wrap an LLM function: audits prompt before and output after. */
 export function guardLLM(
   fn: (prompt: string) => Promise<string>,
