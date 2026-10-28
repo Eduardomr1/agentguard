@@ -3,6 +3,7 @@ import {
   calculateSecurityScore,
   countBySeverity,
   generateHtmlReport,
+  generateMarkdownReport,
   getOwaspCategoryForFinding,
   getOwaspComplianceSummary,
   OWASP_LLM_CATEGORIES,
@@ -313,6 +314,39 @@ describe("generateHtmlReport", () => {
 
       expect(html).toContain("&lt;script&gt;alert(&#039;title&#039;)&lt;/script&gt;");
       expect(html).toContain("&lt;img src=x onerror=alert(2)&gt;");
+    });
+  });
+
+  describe("generateMarkdownReport", () => {
+    it("renders markdown table with rule ID, severity, and security score", () => {
+      const result: AuditResult = {
+        passed: false,
+        findings: [
+          {
+            ruleId: "INJ001",
+            category: "injection",
+            severity: "high",
+            message: "Instruction override",
+            match: "ignore previous",
+            start: 0,
+            end: 15,
+          },
+        ],
+      };
+
+      const md = generateMarkdownReport(result, { title: "CI Audit Summary", inputSource: "prompt.txt" });
+      expect(md).toContain("# 🛡️ CI Audit Summary");
+      expect(md).toContain("**Source:** `prompt.txt`");
+      expect(md).toContain("`INJ001`");
+      expect(md).toContain("**HIGH**");
+      expect(md).toContain("FAILED");
+    });
+
+    it("renders clean passed message when findings list is empty", () => {
+      const result: AuditResult = { passed: true, findings: [] };
+      const md = generateMarkdownReport(result);
+      expect(md).toContain("PASSED");
+      expect(md).toContain("_No security violations or sensitive data leaks detected._");
     });
   });
 });
