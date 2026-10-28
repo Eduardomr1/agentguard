@@ -1355,3 +1355,45 @@ ${safeJsonSummaryForScript}
 </body>
 </html>`;
 }
+
+/**
+ * Generates an executive Markdown report suitable for GitHub PR comments,
+ * CI job summaries ($GITHUB_STEP_SUMMARY), or terminal viewing.
+ */
+export function generateMarkdownReport(
+  result: AuditResult,
+  options: ReportOptions = {}
+): string {
+  const counts = countBySeverity(result.findings);
+  const score = calculateSecurityScore(result);
+  const title = options.title ?? "AgentGuard Security Audit Report";
+  const source = options.inputSource ? `\n**Source:** \`${options.inputSource}\`` : "";
+  const status = result.passed ? "✅ **PASSED**" : "❌ **FAILED (Action Required)**";
+
+  const rows = result.findings.map((f, i) => {
+    return `| ${i + 1} | \`${f.ruleId}\` | **${f.severity.toUpperCase()}** | ${f.category} | \`${f.match.replace(/\|/g, "\\|")}\` | ${f.message.replace(/\|/g, "\\|")} |`;
+  });
+
+  const tableHeader = [
+    "| # | Rule | Severity | Category | Snippet | Details |",
+    "|---|------|----------|----------|---------|---------|",
+  ];
+
+  const findingsSection =
+    result.findings.length > 0
+      ? [...tableHeader, ...rows].join("\n")
+      : "_No security violations or sensitive data leaks detected._";
+
+  return `# 🛡️ ${title}
+${source}
+- **Status:** ${status}
+- **Security Posture Score:** \`${score}/100\`
+- **Findings Summary:** ${counts.critical} Critical, ${counts.high} High, ${counts.medium} Medium, ${counts.low} Low
+
+---
+
+## Findings Details
+
+${findingsSection}
+`;
+}
