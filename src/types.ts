@@ -1,6 +1,6 @@
 export type Severity = "low" | "medium" | "high" | "critical";
-export type Category = "injection" | "secret" | "pii" | "schema";
-export type Target = "prompt" | "output";
+export type Category = "injection" | "secret" | "pii" | "schema" | "tool";
+export type Target = "prompt" | "output" | "tool";
 
 export interface Finding {
   ruleId: string;

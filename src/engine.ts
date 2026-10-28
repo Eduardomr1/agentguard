@@ -2,12 +2,18 @@ import { applyPolicy } from "./policy.js";
 import { injectionRules } from "./rules/injection.js";
 import { piiRules } from "./rules/pii.js";
 import { secretRules } from "./rules/secrets.js";
+import { toolCallRules } from "./rules/toolcalls.js";
 import { redact } from "./rules/util.js";
 import { validateSchema } from "./schema.js";
 import { SEVERITY_ORDER } from "./types.js";
 import type { AuditOptions, AuditResult, Finding, Rule, Severity } from "./types.js";
 
-export const defaultRules: Rule[] = [...injectionRules, ...secretRules, ...piiRules];
+export const defaultRules: Rule[] = [
+  ...injectionRules,
+  ...secretRules,
+  ...piiRules,
+  ...toolCallRules,
+];
 
 export function audit(text: string, options: AuditOptions = {}): AuditResult {
   const target = options.target ?? "prompt";
