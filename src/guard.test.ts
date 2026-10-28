@@ -1,5 +1,5 @@
-﻿import { describe, expect, it } from "vitest";
-import { AgentGuardError, guardLLM, guardStream } from "./guard.js";
+import { describe, expect, it } from "vitest";
+import { AgentGuardError, auditToolCall, guardLLM, guardStream } from "./guard.js";
 
 const KEY = "AKIAIOSFODNN7EXAMPLE";
 async function* gen(parts: string[]) {
@@ -65,4 +65,24 @@ describe("guardStream", () => {
     expect(await collect(guardStream(gen(parts), { overlap: 4 }))).toBe(parts.join(""));
   });
 });
+
+describe("auditToolCall", () => {
+  it("throws when tool arguments contain dangerous shell commands", () => {
+    expect(() =>
+      auditToolCall(
+        { name: "bash_exec", arguments: { cmd: "rm -rf / --no-preserve-root" } },
+        { onViolation: "throw", failOn: "high" }
+      )
+    ).toThrow(AgentGuardError);
+  });
+
+  it("returns findings without throwing when onViolation is report", () => {
+    const res = auditToolCall(
+      { name: "fetch_url", arguments: "http://169.254.169.254/latest/meta-data/" },
+      { onViolation: "report" }
+    );
+    expect(res.findings.some((f) => f.ruleId === "TOOL002")).toBe(true);
+  });
+});
+
 
