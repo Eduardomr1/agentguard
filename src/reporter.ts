@@ -1368,7 +1368,8 @@ export function generateMarkdownReport(
   const score = calculateSecurityScore(result);
   const title = options.title ?? "AgentGuard Security Audit Report";
   const source = options.inputSource ? `\n**Source:** \`${options.inputSource}\`` : "";
-  const status = result.passed ? "✅ **PASSED**" : "❌ **FAILED (Action Required)**";
+  const isPassed = result.ok ?? (result as { passed?: boolean }).passed ?? (result.findings.length === 0);
+  const status = isPassed ? "✅ **PASSED**" : "❌ **FAILED (Action Required)**";
 
   const rows = result.findings.map((f, i) => {
     return `| ${i + 1} | \`${f.ruleId}\` | **${f.severity.toUpperCase()}** | ${f.category} | \`${f.match.replace(/\|/g, "\\|")}\` | ${f.message.replace(/\|/g, "\\|")} |`;

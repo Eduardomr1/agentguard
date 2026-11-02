@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { runCli } from "./cli.js";
 import { audit, exceeds } from "./index.js";
 
 const ids = (text: string, opts = {}) => audit(text, opts).findings.map((f) => f.ruleId);
@@ -94,5 +95,31 @@ describe("engine", () => {
   it("sorts by severity desc", () => {
     const r = audit("a@b.com AKIAIOSFODNN7EXAMPLE");
     expect(r.findings[0].severity).toBe("critical");
+  });
+});
+
+describe("cli report flags", () => {
+  it("exports markdown report to stdout with exit code 0 on clean input", async () => {
+    const out: string[] = [];
+    const code = await runCli(["-", "--markdown", "-"], {
+      stdout: (s) => out.push(s),
+      stderr: () => {},
+      readInput: () => "Safe clean text without any leaks or injection",
+    });
+    expect(code).toBe(0);
+    expect(out.join("")).toContain("# 🛡️ AgentGuard Security Audit Report");
+    expect(out.join("")).toContain("PASSED");
+  });
+
+  it("returns exit code 1 when findings exceed threshold with markdown report", async () => {
+    const out: string[] = [];
+    const code = await runCli(["-", "--markdown", "-", "--fail-on", "low"], {
+      stdout: (s) => out.push(s),
+      stderr: () => {},
+      readInput: () => "Contact me at alice@example.com",
+    });
+    expect(code).toBe(1);
+    expect(out.join("")).toContain("`PII001`");
+    expect(out.join("")).toContain("FAILED");
   });
 });
