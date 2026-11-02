@@ -12,7 +12,7 @@ import { auditStructuredPrompt } from "./parsers.js";
 import { evaluatePolicyGate, mergePolicies } from "./policy.js";
 import { pseudonymizeText } from "./pseudonymize.js";
 import { redactText } from "./redact.js";
-import { generateHtmlReport } from "./reporter.js";
+import { generateHtmlReport, generateMarkdownReport } from "./reporter.js";
 import { toSarif } from "./sarif.js";
 import { formatScanSummaryTerminal, scanFiles } from "./scanner.js";
 import type { Category, PolicyConfig, Severity, Target } from "./types.js";
@@ -42,6 +42,7 @@ Options:
   --normalize               enable homoglyph & leetspeak deobfuscation
   --structured <format>     parse structured prompt (markdown|chat-json)
   --html <out.html>         generate standalone interactive HTML audit report
+  --markdown <out.md>       generate executive Markdown audit summary
   --json | --sarif          machine-readable output
   --redact                  stream input with secrets/PII masked as [REDACTED:<id>]
   --pseudonymize <mode>     anonymize input preserving structure (redact|hash|synthetic)
@@ -93,6 +94,7 @@ export async function runCli(
         normalize: { type: "boolean", default: false },
         structured: { type: "string" },
         html: { type: "string" },
+        markdown: { type: "string" },
         json: { type: "boolean", default: false },
         sarif: { type: "boolean", default: false },
         redact: { type: "boolean", default: false },
@@ -333,6 +335,14 @@ export async function runCli(
     } else {
       writeFileSync(values.html, html, "utf8");
       logOut(`[OK] HTML report written to ${values.html}`);
+    }
+  } else if (values.markdown) {
+    const md = generateMarkdownReport(result, { inputSource: src === "-" ? "stdin" : src });
+    if (values.markdown === "-" || values.markdown === "stdout") {
+      io.stdout(md);
+    } else {
+      writeFileSync(values.markdown, md, "utf8");
+      logOut(`[OK] Markdown report written to ${values.markdown}`);
     }
   } else if (values.redact) {
     io.stdout(redactText(text, result.findings));
