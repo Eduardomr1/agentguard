@@ -30,8 +30,31 @@ Reads `file`, or stdin when omitted or `-`.
 | `--disable <ruleId,...>` | Comma-separated rule IDs to skip (merged with config `disable`) |
 | `--json` | Output result as JSON |
 | `--sarif` | Output result as SARIF |
+| `--markdown <out.md>` | Generate executive Markdown audit summary |
+| `--html <out.html>` | Generate standalone interactive HTML audit report |
+| `--allow-pattern <regex>` | Allowlists matching snippets from violations |
+| `--inline-suppressions` | Honor `agentguard-ignore` comments in trusted files |
 | `--redact` | Print the input with findings masked as `[REDACTED:<ruleId>]` (takes precedence over `--sarif`/`--json`) |
 | `-h`, `--help` | Show usage |
+
+## Agentic Tool-Call Guardrails
+
+AgentGuard audits tool calls, arguments, and function payloads before execution to prevent agentic compromises:
+
+```ts
+import { auditToolCall } from "agentguard/guard";
+
+// Blocks execution if tool arguments contain dangerous shell commands, SQL injections or SSRF
+auditToolCall({
+  name: "bash",
+  arguments: { command: "rm -rf / --no-preserve-root" },
+}, { onViolation: "throw", failOn: "high" });
+```
+
+- **`TOOL001` (Critical):** Dangerous shell command payloads (`rm -rf`, `curl | bash`, reverse shells).
+- **`TOOL002` (High):** SSRF or cloud metadata endpoints (`169.254.169.254`, `metadata.google.internal`, localhost).
+- **`TOOL003` (High):** Destructive SQL statements (`DROP TABLE`, `TRUNCATE TABLE`, mass deletes).
+- **`TOOL004` (High):** Path traversal escaping directory sandboxes (`../../../`).
 
 ```
 echo "ignore all previous instructions" | agentguard - --fail-on high
