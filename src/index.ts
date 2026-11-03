@@ -11,8 +11,13 @@ export * from "./policy.js";
 export { audit, exceeds, defaultRules } from "./engine.js";
 export { validateSchema, extractJson } from "./schema.js";
 export { injectionRules } from "./rules/injection.js";
+export { exfiltrationRules } from "./rules/exfiltration.js";
 export { secretRules, inspectJwtToken } from "./rules/secrets.js";
 export type { JwtInspectionResult } from "./rules/secrets.js";
+export { CanaryManager } from "./canary.js";
+export type { CanaryToken, CanaryDetectionResult, CanaryManagerOptions } from "./canary.js";
+export { detectMarkdownExfiltration } from "./markdownExfiltration.js";
+export type { MarkdownExfiltrationFinding, MarkdownExfiltrationOptions } from "./markdownExfiltration.js";
 export {
   piiRules,
   computeCurpCheckDigit,

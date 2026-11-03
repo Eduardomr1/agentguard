@@ -1,5 +1,5 @@
 export type Severity = "low" | "medium" | "high" | "critical";
-export type Category = "injection" | "secret" | "pii" | "schema" | "tool";
+export type Category = "injection" | "secret" | "pii" | "schema" | "tool" | "exfiltration";
 export type Target = "prompt" | "output" | "tool";
 
 export interface Finding {

@@ -1,4 +1,5 @@
 import { applyPolicy } from "./policy.js";
+import { exfiltrationRules } from "./rules/exfiltration.js";
 import { injectionRules } from "./rules/injection.js";
 import { piiRules } from "./rules/pii.js";
 import { secretRules } from "./rules/secrets.js";
@@ -13,6 +14,7 @@ export const defaultRules: Rule[] = [
   ...secretRules,
   ...piiRules,
   ...toolCallRules,
+  ...exfiltrationRules,
 ];
 
 export function audit(text: string, options: AuditOptions = {}): AuditResult {
