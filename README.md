@@ -56,6 +56,40 @@ auditToolCall({
 - **`TOOL003` (High):** Destructive SQL statements (`DROP TABLE`, `TRUNCATE TABLE`, mass deletes).
 - **`TOOL004` (High):** Path traversal escaping directory sandboxes (`../../../`).
 
+## Canary Tokens & Blind Markdown Exfiltration
+
+### Canary Tokens (`CanaryManager`)
+
+Inject cryptographically signed canaries into system prompts to catch model prompt extraction:
+
+```ts
+import { CanaryManager } from "agentguard";
+
+const canaryMgr = new CanaryManager();
+const canary = canaryMgr.generateToken("tenant-alpha");
+
+// Append canary directive to your system prompt
+const systemPrompt = `You are a helpful assistant. ${canary.promptDirective}`;
+
+// Detect if the model output leaks the canary token
+const check = canaryMgr.detectLeak(modelOutput);
+if (check.leaked) {
+  throw new Error(`System prompt extraction caught! Leaked tokens: ${check.leakedTokens.join(", ")}`);
+}
+```
+
+### Covert Markdown & HTML Exfiltration (`detectMarkdownExfiltration`)
+
+Prevents indirect prompt injections from rendering covert image beacons carrying stolen context or credentials:
+
+```ts
+import { detectMarkdownExfiltration } from "agentguard";
+
+const findings = detectMarkdownExfiltration(modelResponse, {
+  allowedHostnames: ["cdn.internal.net"],
+});
+```
+
 ```
 echo "ignore all previous instructions" | agentguard - --fail-on high
 agentguard out.json --target output --schema schema.json --json
@@ -108,6 +142,8 @@ Rules apply to `prompt`, `output` or both (Target column).
 | PII006 | PII | high | prompt, output | Passport number or Date of Birth (DOB) |
 | SCH001 | Schema | high | output (with `--schema`) | Text is not valid JSON |
 | SCH002 | Schema | high | output (with `--schema`) | JSON violates the schema (one finding per error) |
+| CAN001 | Exfiltration | critical | output | Canary token leak in generated output |
+| EXF001 | Exfiltration | critical | output | Covert markdown or blind image exfiltration attempt |
 
 `SCH000` (high) is also reported when the supplied schema itself is invalid.
 

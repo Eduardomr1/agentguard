@@ -20,7 +20,10 @@ describe("CanaryManager", () => {
     const tamperedToken = `${canary.token}_tampered`;
     expect(manager.verifyTokenIntegrity(tamperedToken, canary.signature)).toBe(false);
 
-    const forgedSignature = canary.signature.replace(/^[0-9a-f]/, "0");
+    const forgedSignature =
+      canary.signature[0] === "a"
+        ? `b${canary.signature.slice(1)}`
+        : `a${canary.signature.slice(1)}`;
     expect(manager.verifyTokenIntegrity(canary.token, forgedSignature)).toBe(false);
   });
 
